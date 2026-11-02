@@ -115,6 +115,8 @@
         <button role="tab" id="tab-schema" aria-controls="panel-schema" aria-selected="false" tabindex="-1">Schema</button>
         <button role="tab" id="tab-validate" aria-controls="panel-validate" aria-selected="false"
           tabindex="-1">Validate</button>
+        <button role="tab" id="tab-generate" aria-controls="panel-generate" aria-selected="false"
+          tabindex="-1">Generate</button>
         <button role="tab" id="tab-query" aria-controls="panel-query" aria-selected="false" tabindex="-1">Query</button>
         <button role="tab" id="tab-compare" aria-controls="panel-compare" aria-selected="false" tabindex="-1">Compare</button>
       </div>
@@ -857,6 +859,72 @@ e2: EnrolledInType</textarea>
           <pre class="output" id="pgschema-output" data-viewer="Validation result" data-format-select="pgschema-result-format"></pre>
           <div class="csv-output" hidden></div>
           <div class="table-output" hidden></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- Generate: synthetic data from a ShEx, SHACL or PGSchema schema -->
+    <section id="panel-generate" role="tabpanel" aria-labelledby="tab-generate" class="section" hidden>
+      <div class="tabs subtabs" role="tablist" aria-label="Generation">
+        <button role="tab" id="tab-gen" aria-controls="panel-gen" aria-selected="true">From a schema</button>
+      </div>
+
+      <section id="panel-gen" role="tabpanel" aria-labelledby="tab-gen" class="panel">
+        <div class="toolbar">
+          <label class="inline">Example
+            <select id="gen-example"></select>
+          </label>
+          <label class="inline">Kind of data
+            <select id="gen-scenario"></select>
+          </label>
+          <span class="hint">The examples say the same in SHACL, ShEx and PGSchema, and generate the same graph.</span>
+        </div>
+        <div class="inputs two">
+          <div class="field">
+            <div class="field-head">
+              <label for="gen-schema">Schema</label>
+              <select id="gen-language" aria-label="Schema language">
+                <option value="turtle">SHACL (Turtle)</option>
+                <option value="shexc">ShEx (ShExC)</option>
+                <option value="pgschema">PGSchema</option>
+              </select>
+            </div>
+            <textarea id="gen-schema" data-editor data-format-select="gen-language" spellcheck="false"></textarea>
+          </div>
+          <div class="field">
+            <div class="field-head">
+              <label for="gen-config">Generator configuration</label>
+              <span class="format-tag" title="rudof generate's configuration, version 2; the kind of data writes it">TOML</span>
+            </div>
+            <textarea id="gen-config" data-editor data-language="toml" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label class="inline">Entities <input id="gen-entities" type="number" min="1" max="100000" value="60"></label>
+          <label class="inline">Seed <input id="gen-seed" type="number" min="0" value="7"></label>
+          <button class="primary" id="gen-validate" disabled>Generate</button>
+          <label class="inline">Show
+            <select id="gen-result-format">
+              <option value="turtle">RDF data (Turtle)</option>
+              <option value="yarspg">Property graph</option>
+              <option value="typemap">Type map</option>
+              <option value="shapemap">ShapeMap</option>
+              <option value="report">Error report</option>
+              <option value="validation">Validation</option>
+            </select>
+          </label>
+          <span class="shortcut">Ctrl + Enter</span>
+        </div>
+        <div class="result" id="gen-result" hidden>
+          <div class="result-head"><span class="verdict"></span><span class="timing"></span></div>
+          <pre class="output" id="gen-output" data-viewer="Generated data" data-format-select="gen-result-format"></pre>
+          <div class="table-output" hidden></div>
+          <div class="toolbar">
+            <span class="hint">Validate it yourself:</span>
+            <button class="secondary" id="gen-to-shacl" disabled>Open in SHACL</button>
+            <button class="secondary" id="gen-to-shex" disabled>Open in ShEx</button>
+            <button class="secondary" id="gen-to-pgschema" disabled>Open in PGSchema</button>
+          </div>
         </div>
       </section>
     </section>

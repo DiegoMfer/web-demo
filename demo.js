@@ -20,6 +20,7 @@ import { setupInputSources, setSource, setText, isUrlSource, urlOf, resolvedUrlO
 import { startLog, loggingFetch, logSummary, logTime, limitsText, renderQueries, isStopping } from "./endpoint-log.js";
 import { LANGUAGES, TARGETS, DEFAULT_TARGET, canConvert, readSchema as readAnySchema, readShexSchema, hasShexImports, hasRelativeImports, convertSchema, sourceLabel, targetLabel, asSource } from "./schema-convert.js";
 import { DATA_MODES, DATA_KINDS, SCHEMA_LANGUAGES, SHEX_FORMATS, dataVerdict, differencesView, compactTerm, shapeIri } from "./compare.js";
+import { GENERATE_EXAMPLES, SCENARIOS, GENERATE_LANGUAGES, exampleSchema, scenarioConfig, generateData, serializeGenerated } from "./generate.js";
 import { devDependencies } from "./package.json";
 
 // The exact version of package.json (the one the tests use), so that updating
@@ -437,7 +438,10 @@ setupInputSources(document, URL_INPUTS, { prefixesOf: urlPrefixes, onChange: upd
 setupVisualInputs();
 // The menus of the Compare tab, which the inputs of a permalink choose in
 setupCompare();
+setupGenerate();
 restoreInputs();
+// The first example, unless a permalink gave the schema
+if (!$("gen-schema").value.trim()) loadGenerateExample();
 showEndpointUse();
 showShaclOptions();
 showShapesFromData();
@@ -1814,6 +1818,69 @@ function compareSchemasOf() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Generate (generate.js): synthetic data from the schema of the tab, validated
+// with it right away
+
+function generateTab() {
+  return generateData(rudofModule, {
+    schema: $("gen-schema").value,
+    format: $("gen-language").value,
+    config: $("gen-config").value.trim(),
+    entities: Number($("gen-entities").value),
+    seed: Number($("gen-seed").value),
+  });
+}
+
+function serializeGenerateTab() {
+  for (const target of ["shacl", "shex", "pgschema"]) $(`gen-to-${target}`).disabled = false;
+  $("gen-to-pgschema").disabled = !last.gen.generated.propertyGraph;
+  return serializeGenerated(last.gen, $("gen-result-format").value);
+}
+
+// The example and the kind of data write the schema and the configuration
+async function loadGenerateExample() {
+  const text = await exampleSchema($("gen-example").value, $("gen-language").value);
+  if (text !== null) setInputText("gen-schema", text);
+  writeGenerateConfig();
+}
+
+function writeGenerateConfig() {
+  setInputText("gen-config", scenarioConfig($("gen-scenario").value, $("gen-example").value, $("gen-language").value));
+}
+
+function setupGenerate() {
+  setOptions($("gen-example"), GENERATE_EXAMPLES.map(([value, text]) => option(value, text)), "references");
+  setOptions($("gen-scenario"), Object.entries(SCENARIOS).map(([value, s]) => option(value, s.label)), "valid");
+  $("gen-example").addEventListener("change", loadGenerateExample);
+  $("gen-language").addEventListener("change", loadGenerateExample);
+  $("gen-scenario").addEventListener("change", writeGenerateConfig);
+  // The generated data, with the schema in each language that the example
+  // has, in the tabs of the validators
+  const open = async (target) => {
+    const { generated, language } = last.gen;
+    const example = $("gen-example").value;
+    const schema = $("gen-schema").value;
+    const schemaIn = async (format) =>
+      GENERATE_LANGUAGES[format] === language ? schema : example === "custom" ? null : await exampleSchema(example, format);
+    if (target === "pgschema") {
+      setInputText("pgschema-data", generated.propertyGraph);
+      setInputText("pgschema-typemap", generated.typeMap);
+      const pgs = await schemaIn("pgschema");
+      if (pgs) setInputText("pgschema-schema", pgs);
+    } else {
+      setInputText(`${target}-data`, generated.data);
+      $(`${target}-data-format`).value = "turtle";
+      $(`${target}-data-format`).dispatchEvent(new Event("change"));
+      const text = await schemaIn(target === "shacl" ? "turtle" : "shexc");
+      if (text) setInputText(target === "shacl" ? "shacl-shapes" : "shex-schema", text);
+      if (target === "shex") setInputText("shex-shapemap", generated.shapemap.trim());
+    }
+    location.hash = `validate/${target}`;
+  };
+  for (const target of ["shacl", "shex", "pgschema"]) $(`gen-to-${target}`).addEventListener("click", () => open(target));
+}
+
 const validators = {
   convert: { validate: readConvertSource, serialize: serializeConversion },
   shex: { validate: validateShex, serialize: serializeShex },
@@ -1826,6 +1893,7 @@ const validators = {
   sparql: { validate: runSparql, serialize: serializeSparql },
   "compare-data": { validate: compareRdfData, serialize: serializeCompareData },
   "compare-schemas": { validate: compareSchemasOf, serialize: () => last["compare-schemas"].report },
+  gen: { validate: generateTab, serialize: serializeGenerateTab },
 };
 // PGSchema has one syntax, PGSchemaC, which rudof can't write yet.
 for (const language of ["shex", "shacl"]) {
