@@ -20,7 +20,7 @@ import { setupInputSources, setSource, setText, isUrlSource, urlOf, resolvedUrlO
 import { startLog, loggingFetch, logSummary, logTime, limitsText, renderQueries, isStopping } from "./endpoint-log.js";
 import { LANGUAGES, TARGETS, DEFAULT_TARGET, canConvert, readSchema as readAnySchema, readShexSchema, hasShexImports, hasRelativeImports, convertSchema, sourceLabel, targetLabel, asSource } from "./schema-convert.js";
 import { DATA_MODES, DATA_KINDS, SCHEMA_LANGUAGES, SHEX_FORMATS, dataVerdict, differencesView, compactTerm, shapeIri } from "./compare.js";
-import { GENERATE_EXAMPLES, SCENARIOS, GENERATE_LANGUAGES, exampleSchema, scenarioConfig, generateData, serializeGenerated } from "./generate.js";
+import { GENERATE_EXAMPLES, GENERATE_TARGETS, SCENARIOS, exampleSchema, scenarioConfig, generateData, validateWith, serializeGenerated, generatedFile } from "./generate.js";
 import { devDependencies } from "./package.json";
 
 // The exact version of package.json (the one the tests use), so that updating
@@ -135,6 +135,9 @@ const endpointPrefixes = new Map();
 // fragment names both, e.g. #validate/shacl.
 
 const tabName = (tab) => tab.id.replace("tab-", "");
+// The panel of a tab, for its permalinks and its run: tabs that share a panel
+// (the languages of Generate) name it with data-panel
+const panelOf = (name) => $(`tab-${name}`)?.dataset.panel ?? name;
 const tabsOf = (tablist) => [...tablist.querySelectorAll(':scope > [role="tab"]')];
 const sectionTabs = tabsOf(document.querySelector('.tabs:not(.subtabs)'));
 
@@ -150,7 +153,13 @@ function selectTab(tab, focus = false) {
     const selected = t === tab;
     t.setAttribute("aria-selected", String(selected));
     t.tabIndex = selected ? 0 : -1;
-    $(t.getAttribute("aria-controls")).hidden = !selected;
+    $(t.getAttribute("aria-controls")).hidden = t.getAttribute("aria-controls") !== tab.getAttribute("aria-controls");
+  }
+  // A tab that chooses an option of its panel (data-select, data-value)
+  const select = tab.dataset.select && $(tab.dataset.select);
+  if (select && select.value !== tab.dataset.value) {
+    select.value = tab.dataset.value;
+    select.dispatchEvent(new Event("change"));
   }
   if (focus) tab.focus();
   const section = sectionTabs.find((t) => t.getAttribute("aria-selected") === "true");
@@ -203,14 +212,15 @@ let pendingSparqlFormat;
 
 function currentPanel() {
   const section = sectionTabs.find((t) => t.getAttribute("aria-selected") === "true");
-  return { section: tabName(section), panel: tabName(selectedSubtab(section)) };
+  const tab = tabName(selectedSubtab(section));
+  return { section: tabName(section), panel: panelOf(tab), tab };
 }
 
 // The value of an input in permalinks: checkboxes are true or false
 const inputValue = (id) => ($(id).type === "checkbox" ? String($(id).checked) : $(id).value);
 
 function permalinkURL() {
-  const { section, panel } = currentPanel();
+  const { section, panel, tab } = currentPanel();
   const url = new URL(location.href);
   const ids = PANELS[panel].params;
   // The inputs given by URLs: their URLs (schema-url=…), not their text
@@ -220,7 +230,7 @@ function permalinkURL() {
     extraData(panel).forEach(({ text, format }, i) => pairs.push([`data-${i + 2}`, text], [`data-${i + 2}-format`, format]));
   }
   url.search = queryString(pairs);
-  url.hash = `${section}/${panel}`;
+  url.hash = `${section}/${tab}`;
   return url.href;
 }
 
@@ -237,7 +247,7 @@ const VALUE_ALIASES = {
 function restoreInputs() {
   if (!hasState(params)) return;
   const fragment = location.hash.slice(1);
-  let panel = (OLD_FRAGMENTS[fragment] ?? fragment).split("/")[1];
+  let panel = panelOf((OLD_FRAGMENTS[fragment] ?? fragment).split("/")[1] ?? "");
   if (!PANELS[panel]) {
     // A URL without a tab: the tab of its parameters
     panel = panelOfParams(params);
@@ -1823,24 +1833,43 @@ function compareSchemasOf() {
 // with it right away
 
 function generateTab() {
-  return generateData(rudofModule, {
-    schema: $("gen-schema").value,
+  const schema = $("gen-schema").value;
+  const result = generateData(rudofModule, {
+    schema,
     format: $("gen-language").value,
     config: $("gen-config").value.trim(),
     entities: Number($("gen-entities").value),
     seed: Number($("gen-seed").value),
   });
+  // What the data came from, for the other languages of its example
+  return { ...result, schema, example: $("gen-example").value };
+}
+
+// The schema of the generated data's example in a language: the one it came
+// from, or the example in that language (a custom schema has no other)
+async function generatedSchemaIn(target) {
+  const { language, schema, example } = last.gen;
+  if (target === language) return schema;
+  return example === "custom" ? null : await exampleSchema(example, GENERATE_TARGETS[target]);
 }
 
 function serializeGenerateTab() {
-  for (const target of ["shacl", "shex", "pgschema"]) $(`gen-to-${target}`).disabled = false;
-  $("gen-to-pgschema").disabled = !last.gen.generated.propertyGraph;
+  const { generated, language, example } = last.gen;
+  for (const target of Object.keys(GENERATE_TARGETS)) {
+    const disabled = (target === "pgschema" && !generated.propertyGraph) || (example === "custom" && target !== language);
+    $(`gen-to-${target}`).disabled = target === "pgschema" && !generated.propertyGraph;
+    $(`gen-check-${target}`).disabled = disabled;
+  }
+  $("gen-download").disabled = false;
   return serializeGenerated(last.gen, $("gen-result-format").value);
 }
 
 // The example and the kind of data write the schema and the configuration
 async function loadGenerateExample() {
-  const text = await exampleSchema($("gen-example").value, $("gen-language").value);
+  const format = $("gen-language").value;
+  const text = await exampleSchema($("gen-example").value, format);
+  // Another language may have been chosen meanwhile
+  if (format !== $("gen-language").value) return;
   if (text !== null) setInputText("gen-schema", text);
   writeGenerateConfig();
 }
@@ -1854,31 +1883,53 @@ function setupGenerate() {
   setOptions($("gen-scenario"), Object.entries(SCENARIOS).map(([value, s]) => option(value, s.label)), "valid");
   $("gen-example").addEventListener("change", loadGenerateExample);
   $("gen-language").addEventListener("change", loadGenerateExample);
+  // The language of a permalink selects its tab
+  $("gen-language").addEventListener("change", () => {
+    const tab = document.querySelector(`#panel-generate [role="tab"][data-value="${$("gen-language").value}"]`);
+    if (tab && tab.getAttribute("aria-selected") !== "true") selectTab(tab);
+  });
   $("gen-scenario").addEventListener("change", writeGenerateConfig);
-  // The generated data, with the schema in each language that the example
-  // has, in the tabs of the validators
+  // The generated data validated here with the schema of its example in
+  // another language
+  const check = async (target) => {
+    const schema = await generatedSchemaIn(target);
+    if (schema === null || !last.gen) return;
+    try {
+      last.gen = validateWith(rudofModule, last.gen, target, schema);
+      $("gen-result-format").value = "validation";
+      reformat("gen");
+    } catch (e) {
+      showResult("gen", { verdict: "Error", kind: "error", output: e.message ?? String(e) });
+    }
+  };
+  // The generated data, with the schema of its example, in the tabs of the
+  // validators
   const open = async (target) => {
-    const { generated, language } = last.gen;
-    const example = $("gen-example").value;
-    const schema = $("gen-schema").value;
-    const schemaIn = async (format) =>
-      GENERATE_LANGUAGES[format] === language ? schema : example === "custom" ? null : await exampleSchema(example, format);
+    const { generated } = last.gen;
+    const schema = await generatedSchemaIn(target);
     if (target === "pgschema") {
       setInputText("pgschema-data", generated.propertyGraph);
       setInputText("pgschema-typemap", generated.typeMap);
-      const pgs = await schemaIn("pgschema");
-      if (pgs) setInputText("pgschema-schema", pgs);
+      if (schema) setInputText("pgschema-schema", schema);
     } else {
       setInputText(`${target}-data`, generated.data);
       $(`${target}-data-format`).value = "turtle";
       $(`${target}-data-format`).dispatchEvent(new Event("change"));
-      const text = await schemaIn(target === "shacl" ? "turtle" : "shexc");
-      if (text) setInputText(target === "shacl" ? "shacl-shapes" : "shex-schema", text);
+      if (schema) setInputText(target === "shacl" ? "shacl-shapes" : "shex-schema", schema);
       if (target === "shex") setInputText("shex-shapemap", generated.shapemap.trim());
     }
     location.hash = `validate/${target}`;
   };
-  for (const target of ["shacl", "shex", "pgschema"]) $(`gen-to-${target}`).addEventListener("click", () => open(target));
+  for (const target of Object.keys(GENERATE_TARGETS)) {
+    $(`gen-to-${target}`).addEventListener("click", () => open(target));
+    $(`gen-check-${target}`).addEventListener("click", () => check(target));
+  }
+  $("gen-download").addEventListener("click", () => {
+    const [name, text] = generatedFile(last.gen, $("gen-result-format").value);
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([text ?? ""], { type: "text/plain" })), download: name });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 }
 
 const validators = {

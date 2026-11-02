@@ -78,7 +78,7 @@
     <p class="intro">
       Convert RDF data and property graphs between formats, validate them with
       <strong>ShEx</strong>, <strong>SHACL</strong>, <strong>DCTAP</strong> or <strong>PGSchema</strong>,
-      query RDF data with <strong>SPARQL</strong>, and compare RDF graphs and schemas.
+      generate synthetic data from their schemas, query RDF data with <strong>SPARQL</strong>, and compare RDF graphs and schemas.
       Everything runs in your browser: rudof is compiled to WebAssembly, and
       nothing you type is sent anywhere, except the queries to the SPARQL endpoint you give.
       <span id="status" class="status loading" role="status">Loading rudof…</span>
@@ -865,11 +865,14 @@ e2: EnrolledInType</textarea>
 
     <!-- Generate: synthetic data from a ShEx, SHACL or PGSchema schema -->
     <section id="panel-generate" role="tabpanel" aria-labelledby="tab-generate" class="section" hidden>
-      <div class="tabs subtabs" role="tablist" aria-label="Generation">
-        <button role="tab" id="tab-gen" aria-controls="panel-gen" aria-selected="true">From a schema</button>
+      <!-- The three tabs share their panel: each chooses the language of the schema -->
+      <div class="tabs subtabs" role="tablist" aria-label="Schema language">
+        <button role="tab" id="tab-gen-shacl" aria-controls="panel-gen" data-panel="gen" data-select="gen-language" data-value="turtle" aria-selected="true">SHACL</button>
+        <button role="tab" id="tab-gen-shex" aria-controls="panel-gen" data-panel="gen" data-select="gen-language" data-value="shexc" aria-selected="false" tabindex="-1">ShEx</button>
+        <button role="tab" id="tab-gen-pgschema" aria-controls="panel-gen" data-panel="gen" data-select="gen-language" data-value="pgschema" aria-selected="false" tabindex="-1">PGSchema</button>
       </div>
 
-      <section id="panel-gen" role="tabpanel" aria-labelledby="tab-gen" class="panel">
+      <section id="panel-gen" role="tabpanel" aria-labelledby="tab-gen-shacl" class="panel">
         <div class="toolbar">
           <label class="inline">Example
             <select id="gen-example"></select>
@@ -883,7 +886,7 @@ e2: EnrolledInType</textarea>
           <div class="field">
             <div class="field-head">
               <label for="gen-schema">Schema</label>
-              <select id="gen-language" aria-label="Schema language">
+              <select id="gen-language" aria-label="Schema language" hidden>
                 <option value="turtle">SHACL (Turtle)</option>
                 <option value="shexc">ShEx (ShExC)</option>
                 <option value="pgschema">PGSchema</option>
@@ -905,6 +908,7 @@ e2: EnrolledInType</textarea>
           <button class="primary" id="gen-validate" disabled>Generate</button>
           <label class="inline">Show
             <select id="gen-result-format">
+              <option value="summary">Summary</option>
               <option value="turtle">RDF data (Turtle)</option>
               <option value="yarspg">Property graph</option>
               <option value="typemap">Type map</option>
@@ -919,12 +923,19 @@ e2: EnrolledInType</textarea>
           <div class="result-head"><span class="verdict"></span><span class="timing"></span></div>
           <pre class="output" id="gen-output" data-viewer="Generated data" data-format-select="gen-result-format"></pre>
           <div class="table-output" hidden></div>
-          <div class="toolbar">
-            <span class="hint">Validate it yourself:</span>
-            <button class="secondary" id="gen-to-shacl" disabled>Open in SHACL</button>
-            <button class="secondary" id="gen-to-shex" disabled>Open in ShEx</button>
-            <button class="secondary" id="gen-to-pgschema" disabled>Open in PGSchema</button>
-          </div>
+        </div>
+        <div class="toolbar schema-tools">
+          <button class="secondary" id="gen-check-shacl" disabled>Validate with SHACL</button>
+          <button class="secondary" id="gen-check-shex" disabled>Validate with ShEx</button>
+          <button class="secondary" id="gen-check-pgschema" disabled>Validate with PGSchema</button>
+          <button class="secondary" id="gen-download" disabled>Download</button>
+          <span class="hint">Here, with the schema of the example in that language.</span>
+        </div>
+        <div class="toolbar schema-tools">
+          <button class="secondary" id="gen-to-shacl" disabled>Open in SHACL</button>
+          <button class="secondary" id="gen-to-shex" disabled>Open in ShEx</button>
+          <button class="secondary" id="gen-to-pgschema" disabled>Open in PGSchema</button>
+          <span class="hint">In the tabs of Validate, with the data and the schema.</span>
         </div>
       </section>
     </section>

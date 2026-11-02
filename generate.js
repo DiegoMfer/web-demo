@@ -9,6 +9,8 @@ import { makeTableTools } from "./table-tools.js";
 // language rudof generate reads, and the extension of the examples
 export const GENERATE_LANGUAGES = { turtle: "shacl", shexc: "shex", pgschema: "pgschema" };
 const EXTENSIONS = { turtle: "ttl", shexc: "shex", pgschema: "pgs" };
+// The other way round: the language → the format of its examples
+export const GENERATE_TARGETS = { shacl: "turtle", shex: "shexc", pgschema: "pgschema" };
 
 // The examples say the same thing in the three languages, over the RDF
 // encoding of the property graph, so they generate the same graph.
@@ -174,7 +176,14 @@ export function generateData(rudofModule, { schema, format, config, entities, se
   const start = performance.now();
   const generated = rudofModule.generate(schema, language, config || undefined, entities, seed);
   const millis = performance.now() - start;
-  const nodes = associations(generated.shapemap);
+  return validateWith(rudofModule, { millis, generated, language, nodes: associations(generated.shapemap) }, language, schema);
+}
+
+// The generated data validated with a schema of one of the three languages
+// (the one it came from, or the same example in another language), and what
+// the validator rejects compared with the report of the generator
+export function validateWith(rudofModule, result, language, schema) {
+  const { generated, nodes } = result;
   const shapes = new Set(nodes.map((a) => a.shape)).size;
   const validation = validateGenerated(rudofModule, generated, language, schema);
   // What the validator must report: the property graph's report for PGSchema,
@@ -198,7 +207,7 @@ export function generateData(rudofModule, { schema, format, config, entities, se
       : `${head}: valid, every ${what[0]} conforms to the schema (${validation.validator})`;
     kind = validation.failing.size ? "fail" : "ok";
   }
-  return { verdict, kind, millis, generated, language, labels, validation };
+  return { ...result, verdict, kind, labels, validation, validatedWith: language };
 }
 
 const el = (tag, props = {}, ...children) => {
@@ -217,6 +226,26 @@ function table(headers, rows) {
 export function serializeGenerated(result, view) {
   const { generated, labels, validation } = result;
   switch (view) {
+    case "summary": {
+      const row = (what, value) => el("tr", {}, el("td", {}, what), el("td", { className: "number" }, value));
+      const count = (n) => n.toLocaleString("en-US");
+      const rows = [row("Nodes generated", count(result.nodes.length))];
+      if (generated.propertyGraph) {
+        const lines = generated.propertyGraph.split("\n").filter((l) => l.trim());
+        const edges = lines.filter((l) => l.includes(")->")).length;
+        rows.push(row("Property graph: nodes / edges", `${count(lines.length - edges)} / ${count(edges)}`));
+      }
+      if (generated.labels) {
+        const broken = labels.filter((l) => l.kind !== "trap");
+        rows.push(row("Report: rejected (direct, induced) / traps", `${count(broken.length)} (${count(broken.filter((l) => l.kind === "direct").length)}, ${count(broken.filter((l) => l.kind === "induced").length)}) / ${count(labels.length - broken.length)}`));
+      }
+      rows.push(row(`${validation.validator} rejects`, count(validation.failing.size)));
+      rows.push(row("Generation time", `${Math.max(1, Math.round(result.millis)).toLocaleString("en-US")} ms`));
+      const perShape = new Map();
+      for (const { shape } of result.nodes) perShape.set(local(shape), (perShape.get(local(shape)) ?? 0) + 1);
+      for (const [shape, n] of [...perShape].sort((a, b) => b[1] - a[1])) rows.push(row(el("span", {}, "Nodes of ", el("code", {}, shape)), count(n)));
+      return table(["", ""], rows);
+    }
     case "turtle":
       return generated.data;
     case "yarspg":
@@ -259,4 +288,18 @@ export function serializeGenerated(result, view) {
     default:
       return "";
   }
+}
+
+// The file of a view of the result, to download it
+export function generatedFile(result, view) {
+  const { generated, validation } = result;
+  const labels = result.validatedWith === "pgschema" ? generated.labels : (generated.rdfLabels ?? generated.labels);
+  return {
+    turtle: ["data.ttl", generated.data],
+    yarspg: ["data.pg", generated.propertyGraph],
+    typemap: ["data.typemap", generated.typeMap],
+    shapemap: ["shapemap.txt", generated.shapemap],
+    report: ["labels.jsonl", labels],
+    validation: ["validation.json", JSON.stringify(validation.entries, null, 2)],
+  }[view] ?? ["data.ttl", generated.data];
 }

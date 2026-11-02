@@ -230,8 +230,11 @@ the CSV, which stays the input. The browser remembers the view.
 ## Generate
 
 The **Generate** section (between Validate and Query) generates synthetic
-data from a schema in SHACL, ShEx or PGSchema, with `generate` of rudof
-(since rudof 0.3.37), and validates it with the same schema right away.
+data from a schema with `generate` of rudof (since rudof 0.3.37), and
+validates it with the same schema right away. It has a tab for each schema
+language, **SHACL**, **ShEx** and **PGSchema**, which share their panel
+(`data-panel="gen"`): the tab chooses the language (`data-select`,
+`data-value`), and the permalink keeps it (`#generate/gen-shex`).
 [`generate.js`](generate.js) has the examples, the kinds of data and the
 views of the result.
 
@@ -239,21 +242,24 @@ views of the result.
   ([`examples/generate/`](examples/generate/)): references, keys, facets,
   labels, LUBM and LDBC SNB. They are written over the RDF encoding of a
   property graph, so the three schemas generate the same graph, and SHACL
-  and ShEx also get the property graph. **Custom** is a small schema to
-  edit.
+  and ShEx also get the property graph. **Your own schema** is a small
+  template to edit.
 - **Kind of data** writes the generator's configuration (TOML, version 2),
   which can be edited before **Generate**: valid data, dense or sparse data,
   a target coherence, or data **with errors** (20% of the entities broken,
   one constraint each).
-- **Show**: the RDF data (Turtle), the property graph and its type map, the
-  ShapeMap, and two tables: the error report and the validation. With
-  errors, the report says which nodes a correct validator must reject
-  (*direct*, the broken node, and *induced*, a node that refers to it) and
-  which changes leave the data valid (*trap*). The verdict compares it with
-  what the validator of the schema's language rejects.
-- **Open in SHACL / ShEx / PGSchema** copies the data, with the example's
-  schema in that language, to the tab of Validate, to validate it there.
-  PGSchema needs a property graph.
+- **Show**: a summary (nodes, the property graph's nodes and edges, the
+  report, what the validator rejects, the nodes of each shape), the RDF data
+  (Turtle), the property graph and its type map, the ShapeMap, the error
+  report and the validation. With errors, the report says which nodes a
+  correct validator must reject (*direct*, the broken node, and *induced*, a
+  node that refers to it) and which changes leave the data valid (*trap*).
+  The verdict compares it with what the validator rejects. **Download**
+  saves the view shown.
+- **Validate with SHACL / ShEx / PGSchema** validates the data here, with
+  the example's schema in that language. **Open in SHACL / ShEx / PGSchema**
+  copies the data and that schema to the tab of Validate instead. PGSchema
+  needs a property graph, and a schema of your own has no other language.
 
 ## SPARQL endpoints
 
