@@ -1930,6 +1930,44 @@ function setupGenerate() {
     a.click();
     URL.revokeObjectURL(a.href);
   });
+  for (const button of document.querySelectorAll("button.gen-data")) {
+    button.addEventListener("click", () => generateDataInto(button.dataset.target));
+  }
+}
+
+// "Generate data" in the data of the other tabs: synthetic data from the
+// schema of the tab, or, in the tabs without a schema, from the first example
+// of Generate. Its format: what rudof generate reads.
+const GENERATE_DATA = {
+  shex: { schema: "shex-schema", format: ["shex-schema-format", "shexc", "ShExC"], language: "shex" },
+  shacl: { schema: "shacl-shapes", format: ["shacl-shapes-format", "turtle", "Turtle"], language: "shacl" },
+  pgschema: { schema: "pgschema-schema", language: "pgschema" },
+  rdf: { language: "shacl" },
+  sparql: { language: "shacl" },
+  pg: { language: "pgschema" },
+};
+
+async function generateDataInto(target) {
+  if (!rudofModule || crashed) return;
+  const { schema: schemaId, format, language } = GENERATE_DATA[target];
+  try {
+    if (typeof rudofModule.generate !== "function") throw new Error("This version of rudof cannot generate data: generate comes with rudof 0.3.37.");
+    if (format && $(format[0]).value !== format[1]) throw new Error(`Generate data reads the schema in ${format[2]}: choose that format, or convert the schema first.`);
+    const schema = schemaId ? $(schemaId).value : await exampleSchema("references", GENERATE_TARGETS[language]);
+    // A new graph on each click
+    const generated = rudofModule.generate(schema, language, undefined, 20, Math.floor(Math.random() * 1_000_000));
+    if (language === "pgschema") {
+      setInputText(`${target}-data`, generated.propertyGraph);
+      if (target === "pgschema") setInputText("pgschema-typemap", generated.typeMap);
+    } else {
+      setInputText(`${target}-data`, generated.data);
+      $(`${target}-data-format`).value = "turtle";
+      $(`${target}-data-format`).dispatchEvent(new Event("change"));
+      if (target === "shex") setInputText("shex-shapemap", generated.shapemap.trim());
+    }
+  } catch (e) {
+    showResult(target, { verdict: "Could not generate data", kind: "error", output: e.message ?? String(e) });
+  }
 }
 
 const validators = {
@@ -2550,7 +2588,7 @@ async function restartRudof() {
     for (const prefix of Object.keys(last)) delete last[prefix];
     crashed = false;
     setStatus("ready", `rudof ${new rudofModule.Rudof().getVersion()} ready${rudofEndpoints ? ", with endpoints" : ""} (loaded again after an error)`);
-    for (const b of document.querySelectorAll('button[id$="-validate"]')) b.disabled = false;
+    for (const b of document.querySelectorAll('button[id$="-validate"], button.gen-data')) b.disabled = false;
   } catch (e) {
     console.error(e);
     setStatus("error", "rudof stopped working: reload the page to continue");
@@ -2582,7 +2620,7 @@ try {
   // About says the version of rudof that the page uses
   $("about-rudof-version").textContent = `${version}${rudofEndpoints ? ", with endpoints" : ""}`;
   $("status").title = `@rudof/rudof from ${url}` + (endpointsError ? `\n(rudof with endpoints could not be loaded: ${endpointsError})` : "");
-  for (const b of document.querySelectorAll('button[id$="-validate"]')) b.disabled = false;
+  for (const b of document.querySelectorAll('button[id$="-validate"], button.gen-data')) b.disabled = false;
   setupEndpoints();
   setupSettings();
 } catch (e) {

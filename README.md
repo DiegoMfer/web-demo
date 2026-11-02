@@ -260,6 +260,14 @@ views of the result.
   the example's schema in that language. **Open in SHACL / ShEx / PGSchema**
   copies the data and that schema to the tab of Validate instead. PGSchema
   needs a property graph, and a schema of your own has no other language.
+- The schema, the configuration and the result have a height of their own
+  (their handle, or Full screen, makes them bigger): the data can be long.
+
+The other tabs have a **Generate data** link next to their data: 20
+entities from the schema of the tab (ShEx in ShExC, SHACL in Turtle,
+PGSchema, with the ShapeMap or the type map), or, in the Data and Query
+tabs, from the first example of Generate. Each click generates another
+graph.
 
 ## SPARQL endpoints
 
