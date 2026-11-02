@@ -58,8 +58,11 @@ const URL_INPUTS = [
   "compare-data-1", "compare-data-2", "compare-schemas-1", "compare-schemas-2",
 ];
 // The inputs that can be shown as a diagram (Visualize): the RDF data, and
-// the ShEx schema
-const VISUAL_INPUTS = { "rdf-data": "rdf", "shex-data": "rdf", "shacl-data": "rdf", "dctap-data": "rdf", "sparql-data": "rdf", "shex-schema": "shex" };
+// the ShEx schemas
+const VISUAL_INPUTS = {
+  "rdf-data": "rdf", "shex-data": "rdf", "shacl-data": "rdf", "dctap-data": "rdf", "sparql-data": "rdf", "shex-schema": "shex",
+  "compare-data-1": "rdf", "compare-data-2": "rdf", "compare-schemas-1": "shex", "compare-schemas-2": "shex",
+};
 
 // The prefixes of the prefixed names of the URL of an input: common ones,
 // and those of the endpoint of its tab, which win
@@ -581,7 +584,8 @@ const diagrams = new WeakMap();
 // shows the input as the diagram that PlantUML draws of it (rudof writes it
 // in PlantUML: serializeData and serializeCurrentShex), in place of its
 // editor, and Edit shows the editor again. The RDF data is that of the tab,
-// with the RDF data added to it; an input given by a URL is read first.
+// with the RDF data added to it (in Compare, each input alone); an input
+// given by a URL is read first.
 function setupVisualInputs() {
   for (const [id, kind] of Object.entries(VISUAL_INPUTS)) {
     const textarea = $(id);
@@ -640,11 +644,14 @@ async function setVisual(id, visual) {
     rudof.resetAll();
     let source;
     if (VISUAL_INPUTS[id] === "rdf") {
-      readTabData(rudof, id.replace(/-data$/, ""));
+      if (id.startsWith("compare-")) rudof.readData($(id).value, $(`${id}-format`).value);
+      else readTabData(rudof, id.replace(/-data$/, ""));
       source = rudof.serializeData("plantuml");
     } else {
       const schema = $(id).value;
-      await readShexSchema(rudof, schema, $(`${id}-format`).value, importBase("shex", schema));
+      // The relative imports of a schema given by a URL are relative to it
+      const base = id === "shex-schema" ? importBase("shex", schema) : hasRelativeImports(schema) && isUrlSource(id) ? resolvedUrlOf(id) : undefined;
+      await readShexSchema(rudof, schema, $(`${id}-format`).value, base);
       source = rudof.serializeCurrentShex("plantuml");
     }
     if (diagrams.get(box) !== token) return;
@@ -1719,8 +1726,10 @@ function setupCompare() {
       const [first, second] = [state(1), state(2)];
       for (const [n, { url, values }] of [[1, second], [2, first]]) {
         const id = `${prefix}-${n}`;
-        if (url !== undefined) setSource(document, id, "url", { url });
-        else setInputText(id, values[0]);
+        if (url !== undefined) {
+          setVisual(id, false);
+          setSource(document, id, "url", { url });
+        } else setInputText(id, values[0]);
         ids.slice(1).forEach((suffix, i) => {
           const input = $(`${id}${suffix}`);
           input.value = values[i + 1];

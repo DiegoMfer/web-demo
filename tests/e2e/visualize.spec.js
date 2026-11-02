@@ -66,3 +66,29 @@ test("an input that the page changes goes back to its editor", async ({ page }) 
   await expect(page.locator("#rdf-data-visual")).toBeHidden();
   await expect(editor(page, "rdf-data")).toBeVisible();
 });
+
+test("Visualize shows each input of Compare alone as a diagram", async ({ page }) => {
+  await open(page, "#compare/compare-data");
+  for (const n of [1, 2]) {
+    await page.locator(`#compare-data-${n}-visualize`).click();
+    await expect(page.locator(`#compare-data-${n}-visualize`)).toHaveText("Edit");
+    await expect(editor(page, `compare-data-${n}`)).toBeHidden();
+  }
+  // Each one has only its own triples: foaf:age is only in the second one
+  await expect(page.locator("#compare-data-1-visual .visual-source")).toContainText("alice");
+  await expect(page.locator("#compare-data-1-visual .visual-source")).not.toContainText("34");
+  await expect(page.locator("#compare-data-2-visual .visual-source")).toContainText("34");
+  // Swap shows the editors again
+  await page.locator("#compare-data-swap").click();
+  await expect(page.locator("#compare-data-1-visualize")).toHaveText("Visualize");
+  await expect(editor(page, "compare-data-1")).toBeVisible();
+  await expect(page.locator("#compare-data-2-visual")).toBeHidden();
+
+  await page.locator("#tab-compare-schemas").click();
+  await page.locator("#compare-schemas-2-visualize").click();
+  await expect(editor(page, "compare-schemas-2")).toBeHidden();
+  await expect(page.locator("#compare-schemas-2-visual .visual-source")).toContainText("@startuml");
+  await expect(page.locator("#compare-schemas-2-visual .visual-source")).toContainText("email");
+  await page.locator("#compare-schemas-2-visualize").click();
+  await expect(editor(page, "compare-schemas-2")).toBeVisible();
+});

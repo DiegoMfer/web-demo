@@ -52,19 +52,21 @@ schema, the schema of the Schema tab and the SPARQL query.
 ## Inputs as diagrams
 
 **Visualize**, next to the format menu of the RDF data (of the RDF, ShEx,
-SHACL, DCTAP and SPARQL tabs) and of the ShEx schema, shows the input as a
+SHACL, DCTAP and SPARQL tabs, and the two of Compare) and of the ShEx schemas
+(of the ShEx tab, and the two of Compare), shows the input as a
 diagram in place of its editor. rudof writes the diagram in PlantUML
 (`serializeData` and `serializeCurrentShex`), and PlantUML draws it, as for
 the UML diagrams of the results. The button is then **Edit**, which shows the
 editor again.
 
-- The RDF data is that of the tab, with the RDF data added to it. An input
-  given by a URL is read first. The relative imports of a ShEx schema are
-  read too.
+- The RDF data is that of the tab, with the RDF data added to it; in
+  Compare, each input alone. An input given by a URL is read first. The
+  relative imports of a ShEx schema are read too.
 - **Show PlantUML source** shows the source of the diagram, and **Download
   SVG** saves the diagram.
 - When the input has an error, the box says it.
-- An example, or a result used as input, shows the editor again.
+- An example, a result used as input, or **Swap** in Compare, shows the
+  editor again.
 
 ## Editors
 
