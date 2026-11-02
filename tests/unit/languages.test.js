@@ -42,7 +42,9 @@ describe("formats and languages", () => {
       // DCTAP: what rudof writes of a profile, the engines it is validated with, and the separators of picklists
       "internal", "shex", "shacl", " ", "|",
       // The recursion semantics of SHACL
-      "lfp", "gfp", "none"];
+      "lfp", "gfp", "none",
+      // The report of a comparison
+      "report"];
     for (const format of [...new Set([...values, ...fixed])].filter((f) => !outputs.includes(f))) {
       expect(FORMATS, format).toHaveProperty(format);
     }

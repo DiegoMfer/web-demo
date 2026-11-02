@@ -19,7 +19,7 @@ describe("index.html", () => {
   });
 
   it("has input textareas", () => {
-    expect(textareas.length).toBe(20);
+    expect(textareas.length).toBe(24);
   });
 
   it("gives every textarea a unique id", () => {
@@ -67,6 +67,10 @@ describe("index.html", () => {
       "pgschema-typemap": "typemap",
       "sparql-data": "sparql-data-format",
       "sparql-query": "sparql",
+      "compare-data-1": "compare-data-1-format",
+      "compare-data-2": "compare-data-2-format",
+      "compare-schemas-1": "compare-schemas-1-format",
+      "compare-schemas-2": "compare-schemas-2-format",
       "settings-toml": "toml",
     });
   });

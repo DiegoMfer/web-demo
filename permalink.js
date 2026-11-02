@@ -91,6 +91,30 @@ export const PANELS = {
       "result-format": "sparql-result-format",
     },
   },
+  "compare-data": {
+    section: "compare",
+    params: {
+      kind: "compare-data-kind",
+      data: "compare-data-1",
+      "data-format": "compare-data-1-format",
+      data2: "compare-data-2",
+      "data2-format": "compare-data-2-format",
+      mode: "compare-data-mode",
+      "result-format": "compare-data-result-format",
+    },
+  },
+  "compare-schemas": {
+    section: "compare",
+    params: {
+      "schema-language": "compare-schemas-language",
+      schema: "compare-schemas-1",
+      "schema-format": "compare-schemas-1-format",
+      shape: "compare-schemas-1-label",
+      schema2: "compare-schemas-2",
+      "schema2-format": "compare-schemas-2-format",
+      shape2: "compare-schemas-2-label",
+    },
+  },
 };
 
 // Parameters that are not inputs, kept as they are.
@@ -110,7 +134,7 @@ export function hasState(params) {
 // The tab of parameters without a fragment: the first one with a parameter
 // only it has, or the RDF converter for data alone. Links of shex.js
 // (?schema=…&data=…&shape-map=…) open the ShEx tab.
-const DISTINCTIVE = [["to", "convert"], ["dctap", "dctap"], ["shape-map", "shex"], ["shapes", "shacl"], ["type-map", "pgschema"], ["query", "sparql"], ["endpoint", "sparql"], ["schema", "shex"], ["data", "rdf"]];
+const DISTINCTIVE = [["data2", "compare-data"], ["schema2", "compare-schemas"], ["to", "convert"], ["dctap", "dctap"], ["shape-map", "shex"], ["shapes", "shacl"], ["type-map", "pgschema"], ["query", "sparql"], ["endpoint", "sparql"], ["schema", "shex"], ["data", "rdf"]];
 
 export function panelOfParams(params) {
   const names = new Set([...params.keys()].map(baseName));

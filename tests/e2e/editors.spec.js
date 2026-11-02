@@ -9,6 +9,7 @@ const INPUTS = [
   "rdf-data", "pg-data", "convert-schema", "convert-prefixes", "shex-data", "shex-schema", "shex-shapemap", "shacl-data", "shacl-shapes", "shacl-targets",
   "dctap-data", "dctap-schema", "dctap-shapemap", "dctap-prefixes",
   "pgschema-data", "pgschema-schema", "pgschema-typemap", "sparql-data", "sparql-query",
+  "compare-data-1", "compare-data-2", "compare-schemas-1", "compare-schemas-2",
   // The settings of rudof, in their dialog
   "settings-toml",
 ];

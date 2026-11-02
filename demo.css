@@ -1029,3 +1029,11 @@ table.csv-result td code { font-size: 12px; white-space: pre-wrap; overflow-wrap
 /* An ⓘ that explains the choice next to it (its title) */
 .info { color: var(--muted); cursor: help; border-radius: 50%; }
 .info:hover, .info:focus-visible { color: var(--accent); }
+
+/* Compare (compare.js) */
+.compare-options { flex-wrap: wrap; }
+.compare-shape { margin-top: 0.4rem; }
+.compare-shape input { font: inherit; font-family: var(--mono); padding: 0.2rem 0.4rem; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: inherit; min-width: 12rem; }
+.compare-differences > p { margin: 0.6rem 0.75rem; }
+ul.compare-bnodes { margin: 0 0.75rem 0.75rem; padding-left: 1.2rem; }
+ul.compare-bnodes code { font-size: 0.9em; }

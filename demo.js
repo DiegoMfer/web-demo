@@ -19,6 +19,7 @@ import { parseBoxTable } from "./box-table.js";
 import { setupInputSources, setSource, setText, isUrlSource, urlOf, resolvedUrlOf, urlInputsIn, readUrlInput, readUrlInputs, showResolved } from "./input-source.js";
 import { startLog, loggingFetch, logSummary, logTime, limitsText, renderQueries, isStopping } from "./endpoint-log.js";
 import { LANGUAGES, TARGETS, DEFAULT_TARGET, canConvert, readSchema as readAnySchema, readShexSchema, hasShexImports, hasRelativeImports, convertSchema, sourceLabel, targetLabel, asSource } from "./schema-convert.js";
+import { DATA_MODES, DATA_KINDS, SCHEMA_LANGUAGES, SHEX_FORMATS, dataVerdict, differencesView, compactTerm, shapeIri } from "./compare.js";
 import { devDependencies } from "./package.json";
 
 // The exact version of package.json (the one the tests use), so that updating
@@ -54,6 +55,7 @@ const ENDPOINT_TABS = ["shex", "shacl", "dctap", "sparql"];
 const URL_INPUTS = [
   "rdf-data", "convert-schema", "shex-data", "shex-schema", "shacl-data", "shacl-shapes",
   "dctap-data", "dctap-schema", "pgschema-schema", "sparql-data", "sparql-query",
+  "compare-data-1", "compare-data-2", "compare-schemas-1", "compare-schemas-2",
 ];
 // The inputs that can be shown as a diagram (Visualize): the RDF data, and
 // the ShEx schema
@@ -430,6 +432,8 @@ refreshKnownEndpoints();
 setupExtraData(document, { onChange: updatePermalink });
 setupInputSources(document, URL_INPUTS, { prefixesOf: urlPrefixes, onChange: updatePermalink });
 setupVisualInputs();
+// The menus of the Compare tab, which the inputs of a permalink choose in
+setupCompare();
 restoreInputs();
 showEndpointUse();
 showShaclOptions();
@@ -684,7 +688,7 @@ let crashed = false;
 
 // A stack overflow: "Maximum call stack size exceeded" (Chrome, Safari),
 // "too much recursion" (Firefox)
-const isStackOverflow = (e) => e instanceof RangeError || e?.name === "InternalError";
+const isStackOverflow = (e) => (e instanceof RangeError && /call stack/i.test(e.message)) || e?.name === "InternalError";
 
 function showError(prefix, e) {
   // A panic in Rust aborts the WebAssembly module, and a stack overflow in
@@ -1698,6 +1702,109 @@ function serializeSchema(language) {
   return rudof.serializeShacl(format);
 }
 
+// ---------------------------------------------------------------------------
+// Compare: two RDF graphs, or two schemas (compare.js). What rudof can't
+// compare yet (property graphs, the schemas of other languages) is in the
+// menus, and can't be chosen.
+
+function setupCompare() {
+  setOptions($("compare-data-kind"), DATA_KINDS.map(([value, text, enabled]) => option(value, text, enabled)));
+  setOptions($("compare-data-mode"), DATA_MODES.map(([value, text, title]) => Object.assign(option(value, text), { title })));
+  setOptions($("compare-schemas-language"), SCHEMA_LANGUAGES.map(([value, text, enabled]) => option(value, text, enabled)));
+  for (const n of [1, 2]) setOptions($(`compare-schemas-${n}-format`), SHEX_FORMATS.map(([value, text, enabled]) => option(value, text, enabled)));
+  // Swap the two inputs, their formats, where they come from and the shapes
+  for (const [prefix, ids] of [["compare-data", ["", "-format"]], ["compare-schemas", ["", "-format", "-label"]]]) {
+    $(`${prefix}-swap`).addEventListener("click", () => {
+      const state = (n) => ({ url: isUrlSource(`${prefix}-${n}`) ? urlOf(`${prefix}-${n}`) : undefined, values: ids.map((id) => $(`${prefix}-${n}${id}`).value) });
+      const [first, second] = [state(1), state(2)];
+      for (const [n, { url, values }] of [[1, second], [2, first]]) {
+        const id = `${prefix}-${n}`;
+        if (url !== undefined) setSource(document, id, "url", { url });
+        else setInputText(id, values[0]);
+        ids.slice(1).forEach((suffix, i) => {
+          const input = $(`${id}${suffix}`);
+          input.value = values[i + 1];
+          input.dispatchEvent(new Event("change"));
+        });
+      }
+      updatePermalink();
+    });
+  }
+}
+
+const ORDINALS = { 1: "first", 2: "second" };
+
+// Two RDF graphs: how they are related, and their differences
+function compareRdfData() {
+  const start = performance.now();
+  const rudof = session("compare-data");
+  const input = (n) => [$(`compare-data-${n}`).value, $(`compare-data-${n}-format`).value];
+  const [[data1, format1], [data2, format2]] = [input(1), input(2)];
+  let diff;
+  try {
+    diff = rudof.diffData(data1, data2, format1, format2, null, null, null, $("compare-data-mode").value);
+  } catch (e) {
+    // rudof doesn't say which one can't be read
+    for (const n of [1, 2]) {
+      try {
+        rudof.resetData();
+        rudof.readData(...input(n));
+      } catch {
+        throw new Error(`The ${ORDINALS[n]} RDF data can't be read: ${e.message ?? e}`, { cause: e });
+      } finally {
+        rudof.resetData();
+      }
+    }
+    throw e;
+  }
+  return { ...dataVerdict(diff), millis: performance.now() - start, diff };
+}
+
+function serializeCompareData() {
+  const { diff } = last["compare-data"];
+  const format = $("compare-data-result-format").value;
+  if (format === "table") return differencesView(document, diff, tabPrefixes("compare-data"));
+  if (format === "report") return diff.report;
+  const { report, ...rest } = diff;
+  return JSON.stringify(rest, null, 2);
+}
+
+// The shape of a schema that is compared: the one written, or its first one.
+// The schema is read first, to say which one has an error.
+function comparedShape(rudof, n) {
+  const text = $(`compare-schemas-${n}`).value;
+  let first;
+  try {
+    rudof.resetShex();
+    rudof.readShex(text, $(`compare-schemas-${n}-format`).value);
+    first = JSON.parse(rudof.serializeCurrentShex("shexj")).shapes?.[0]?.id;
+  } catch (e) {
+    throw new Error(`The ${ORDINALS[n]} schema can't be read: ${e.message ?? e}`, { cause: e });
+  }
+  const prefixes = declaredPrefixes(text);
+  const iri = shapeIri($(`compare-schemas-${n}-label`).value, prefixes) ?? first;
+  if (!iri) throw new Error(`The ${ORDINALS[n]} schema has no shapes`);
+  return { iri, prefixes };
+}
+
+// Two shapes of two schemas, compared property by property
+function compareSchemasOf() {
+  const start = performance.now();
+  const rudof = session("compare-schemas");
+  const language = $("compare-schemas-language").value;
+  const [first, second] = [comparedShape(rudof, 1), comparedShape(rudof, 2)];
+  const input = (n) => [$(`compare-schemas-${n}`).value, $(`compare-schemas-${n}-format`).value];
+  const [[schema1, format1], [schema2, format2]] = [input(1), input(2)];
+  const report = rudof.compareSchemas(schema1, schema2, language, language, format1, format2, null, null, first.iri, second.iri).trimEnd();
+  const name = ({ iri, prefixes }) => compactTerm(`<${iri}>`, prefixes);
+  return {
+    verdict: `The shape ${name(first)} of the first schema compared with the shape ${name(second)} of the second one`,
+    kind: "ok",
+    millis: performance.now() - start,
+    report: report.includes("\n") ? report : `${report}\n(rudof found no differences between the properties of the two shapes)`,
+  };
+}
+
 const validators = {
   convert: { validate: readConvertSource, serialize: serializeConversion },
   shex: { validate: validateShex, serialize: serializeShex },
@@ -1708,6 +1815,8 @@ const validators = {
   rdf: { validate: convertRdf, serialize: serializeRdf },
   pg: { validate: convertPg, serialize: serializePg },
   sparql: { validate: runSparql, serialize: serializeSparql },
+  "compare-data": { validate: compareRdfData, serialize: serializeCompareData },
+  "compare-schemas": { validate: compareSchemasOf, serialize: () => last["compare-schemas"].report },
 };
 // PGSchema has one syntax, PGSchemaC, which rudof can't write yet.
 for (const language of ["shex", "shacl"]) {

@@ -3,8 +3,8 @@
 This repo contains the source code of the Web demo based on rudof-lib WebAssembly features
 
 The demo converts RDF data and property graphs between formats, validates them
-with ShEx, SHACL, DCTAP or PGSchema, and queries RDF data with SPARQL, all in the
-browser. rudof ([`@rudof/rudof`](https://www.npmjs.com/package/@rudof/rudof))
+with ShEx, SHACL, DCTAP or PGSchema, queries RDF data with SPARQL, and
+compares RDF graphs and schemas, all in the browser. rudof ([`@rudof/rudof`](https://www.npmjs.com/package/@rudof/rudof))
 and PlantUML are loaded from jsDelivr when the page runs; everything else is
 built from this repo.
 
@@ -137,6 +137,42 @@ What rudof can't do yet (–) is in the menus, marked "not in rudof yet", and
 can't be chosen. A DCTAP profile has its prefixes and its table view, as in
 the DCTAP tab of Validate. **Use as input** reads the result as the schema,
 when it is a schema in a format the tab reads.
+
+## Compare
+
+The **Compare** section compares two RDF graphs (**Data**) or two schemas
+(**Schemas**), with [`compare.js`](compare.js). What rudof can't compare yet
+is in the menus, and can't be chosen: property graphs, and the schemas of
+SHACL, DCTAP and PGSchema.
+
+- **Data** (rudof 0.3.36, `diffData`) says how the first RDF data and the
+  second one are related, up to the names of their blank nodes: they are
+  *isomorphic* (the same graph), *equivalent* (each one is contained in the
+  other, but not isomorphic), the first one is contained in the second one
+  (*subgraph*) or the second one in the first one (*supergraph*), or they are
+  *different*. **Blank nodes** says how the blank nodes of a graph may be
+  mapped to the terms of the other one: *injective* (two blank nodes can't go
+  to the same term; the default), *homomorphic* (they can), or *entailment*
+  (a blank node can also go to an IRI or a literal).
+  - **Table** has the triples that are only in one of the graphs, as in the
+    other tables of results (sorted, filtered, with links), written with the
+    prefixes of the two inputs, and the blank nodes of the first graph matched
+    in the second one. **Report** is the report of rudof, and **JSON** what
+    `diffData` returns.
+  - The names of the graphs of TriG and N-Quads are not compared.
+  - When an input can't be read, the result says which one.
+- **Schemas** (`compareSchemas`) compares a shape of the first ShEx schema
+  with a shape of the second one, property by property, and shows the report
+  of rudof. **Shape** is the shape of each schema (a prefixed name of the
+  prefixes of the schema, or an IRI); when it is empty, it is the first shape
+  of the schema. rudof doesn't say yet whether the schemas are equivalent, or
+  one contains the other, and it only reads ShExC for this (ShExJ and ShExR
+  are in the menu, and can't be chosen). In rudof 0.3.36, `compareSchemas`
+  crashes with SHACL and ShExR (a panic, "not yet implemented"), so the page
+  doesn't call it for them.
+- **Swap** swaps the two inputs, with their formats and shapes. Permalinks
+  have both inputs: `data` and `data2`, or `schema` and `schema2`, with
+  `#compare/compare-data` or `#compare/compare-schemas`.
 
 ## ShEx imports
 
